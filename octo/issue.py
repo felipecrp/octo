@@ -1,24 +1,30 @@
 
+import json
+from datetime import datetime
+
 class Issue(object):
     ''' A generic issue '''
 
     def __init__(self, *args, **kwargs):
         for arg in args:
             if isinstance(arg, dict):
-                for key, value in arg.items():
-                    self.set(key, value)
-        for key, value in kwargs.items():
-            self.set(key, value)
+                for name, value in arg.items():
+                    setattr(self, name, value)
+        for name, value in kwargs.items():
+            setattr(self, name, value)
 
-    def set(self, key, value):
-        if key == '_id':
-            setattr(self, 'id', value)
-        elif key == 'date':
-            setattr(self, key, IssueDate(**value))
-        elif key == 'user':
-            setattr(self, key, IssueUser(**value))
+        if not hasattr(self, 'date'):
+            setattr(self, 'date', IssueDate())
+
+    def __setattr__(self, name, value):
+        if name == '_id':
+            object.__setattr__(self, 'id', value)
+        elif name == 'user' and isinstance(value, dict):
+            object.__setattr__(self, name, IssueUser(**value))
+        elif name == 'date' and isinstance(value, dict):
+            object.__setattr__(self, name, IssueDate(**value))
         else:
-            setattr(self, key, value)
+            object.__setattr__(self, name, value)
 
     def __dir__(self):
         return [
@@ -34,9 +40,18 @@ class Issue(object):
 class IssueDate(object):
     ''' Handle issue dates '''
 
-    def __init__(self, data):
-        for attr in data:
-            setattr(self, attr, data[attr])
+    def __init__(self, *args, **kwargs):
+        for arg in args:
+            if isinstance(arg, dict):
+                for name, value in arg.items():
+                    setattr(self, name, value)
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+        if not hasattr(self, 'created'):
+            setattr(self, 'created', datetime.now())
+        if not hasattr(self, 'last_modified'):
+            setattr(self, 'last_modified', datetime.now())
 
     def __dir__(self):
         return [
@@ -46,11 +61,21 @@ class IssueDate(object):
         ]
 
 class IssueUser(object):
-    ''' Handle issue related people '''
+    ''' Handle issue related users '''
 
-    def __init__(self, data):
-        for attr in data:
-            setattr(self, attr, data[attr])
+    def __init__(self, *args, **kwargs):
+        for arg in args:
+            if isinstance(arg, dict):
+                for name, value in arg.items():
+                    setattr(self, name, value)
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def __setattr__(self, name, value):
+        if isinstance(value, str):
+            object.__setattr__(self, name, [value])
+        elif isinstance(value, list):
+            object.__setattr__(self, name, value)
 
     def __dir__(self):
         return [
@@ -58,6 +83,40 @@ class IssueUser(object):
             'reported_from'     # the users that reported the issue
         ]
 
-if __name__ == "__main__":
-    b = Issue(subject='xpto2')
-    a = Issue({ 'subject': 'xpto'})
+class IssueDAO(object):
+    ''' Issue Data Access Object '''
+
+    def __init__(self, db):
+        self.db = db
+        self.issues_db = db.issues
+
+    def find_one_by_id(self, issue_id):
+        ''' Find issue by id '''
+        issue_data = self.issues_db.find_one({'_id': issue_id})
+        issue = Issue(**issue_data)
+        return issue
+
+    def save(self, issue):
+        ''' Save the issue '''
+        if hasattr(issue, 'id'):
+            issue_id = getattr(issue, 'id')
+        else:
+            issue_id = int(self.db.system_js.getNextSequence('issue'))
+
+        issue_data = self.issues_db.find_one_and_update(
+            {
+                '_id': issue_id
+            },
+            {
+                '$set': {
+                    'subject': getattr(issue, 'subject')
+                }
+            },
+            new=True,
+            upsert=True
+        )
+
+        updated_issue = Issue(issue_data)
+        return updated_issue
+
+
