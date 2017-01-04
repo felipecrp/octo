@@ -5,16 +5,16 @@ from datetime import datetime
 class Issue(object):
     ''' A generic issue '''
 
-    def __init__(self, *args, **kwargs):
-        for arg in args:
-            if isinstance(arg, dict):
-                for name, value in arg.items():
-                    setattr(self, name, value)
+    def __init__(self, subject, **kwargs):
         for name, value in kwargs.items():
             setattr(self, name, value)
 
+        self.subject = subject
+
+        if not hasattr(self, 'status'):
+            self.status = 'new'
         if not hasattr(self, 'date'):
-            setattr(self, 'date', IssueDate())
+            self.date = IssueDate()
 
     def __setattr__(self, name, value):
         if name == '_id':
@@ -103,20 +103,22 @@ class IssueDAO(object):
         else:
             issue_id = int(self.db.system_js.getNextSequence('issue'))
 
-        issue_data = self.issues_db.find_one_and_update(
-            {
-                '_id': issue_id
-            },
-            {
-                '$set': {
-                    'subject': getattr(issue, 'subject')
-                }
-            },
+        issue_data = dict()
+        for key in issue.__dict__:
+            value = getattr(issue, key)
+            if isinstance(value, IssueUser) or isinstance(value, IssueDate):
+                issue_data[key] = value.__dict__
+            elif key == 'id':
+                pass
+            else:
+                issue_data[key] = value
+
+        updated_issue_data = self.issues_db.find_one_and_replace(
+            {'_id': issue_id},
+            issue_data,
             new=True,
             upsert=True
         )
 
-        updated_issue = Issue(issue_data)
+        updated_issue = Issue(updated_issue_data)
         return updated_issue
-
-
