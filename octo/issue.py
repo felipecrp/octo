@@ -6,28 +6,16 @@ class Issue(object):
     ''' A generic issue '''
 
     def __init__(self, subject, **kwargs):
+        self.subject = subject
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-        self.subject = subject
-
-        if not hasattr(self, 'status'):
-            self.status = 'new'
         if not hasattr(self, 'date'):
-            self.date = IssueDate()
-
-    def __setattr__(self, name, value):
-        if name == '_id':
-            object.__setattr__(self, 'id', value)
-        elif name == 'user' and isinstance(value, dict):
-            object.__setattr__(self, name, IssueUser(**value))
-        elif name == 'date' and isinstance(value, dict):
-            object.__setattr__(self, name, IssueDate(**value))
-        else:
-            object.__setattr__(self, name, value)
+            self.date = {}
+            IssueDate(self.date)
 
     def __dir__(self):
-        return [
+        return dir(super()) + [
             'id',               # the issue id
             'subject',          # the issue short description
             'user',             # the users related to the issue
@@ -37,17 +25,20 @@ class Issue(object):
             'field'             # the issue custom fields
         ]
 
+    '''def __getattribute__(self, name):
+        value = object.__getattribute__(self, name)
+        if name == 'user':
+            return IssueUser(value)
+        elif name == 'date':
+            return IssueDate(value)
+        else:
+            return value'''
+
 class IssueDate(object):
     ''' Handle issue dates '''
 
-    def __init__(self, *args, **kwargs):
-        for arg in args:
-            if isinstance(arg, dict):
-                for name, value in arg.items():
-                    setattr(self, name, value)
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-
+    def __init__(self, data):
+        self.__dict__ = data
         if not hasattr(self, 'created'):
             setattr(self, 'created', datetime.now())
         if not hasattr(self, 'last_modified'):
@@ -63,22 +54,11 @@ class IssueDate(object):
 class IssueUser(object):
     ''' Handle issue related users '''
 
-    def __init__(self, *args, **kwargs):
-        for arg in args:
-            if isinstance(arg, dict):
-                for name, value in arg.items():
-                    setattr(self, name, value)
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-
-    def __setattr__(self, name, value):
-        if isinstance(value, str):
-            object.__setattr__(self, name, [value])
-        elif isinstance(value, list):
-            object.__setattr__(self, name, value)
+    def __init__(self, data):
+        self.__dict__ = data 
 
     def __dir__(self):
-        return [
+        return dir(super()) + [
             'assigned_to',      # the users responsibles for handle the issue
             'reported_from'     # the users that reported the issue
         ]
@@ -90,7 +70,7 @@ class IssueDAO(object):
         self.db = db
         self.issues_db = db.issues
 
-    def find_one_by_id(self, issue_id):
+    def load(self, issue_id):
         ''' Find issue by id '''
         issue_data = self.issues_db.find_one({'_id': issue_id})
         issue = Issue(**issue_data)
@@ -103,16 +83,7 @@ class IssueDAO(object):
         else:
             issue_id = int(self.db.system_js.getNextSequence('issue'))
 
-        issue_data = dict()
-        for key in issue.__dict__:
-            value = getattr(issue, key)
-            if isinstance(value, IssueUser) or isinstance(value, IssueDate):
-                issue_data[key] = value.__dict__
-            elif key == 'id':
-                pass
-            else:
-                issue_data[key] = value
-
+        issue_data = issue.__dict__
         updated_issue_data = self.issues_db.find_one_and_replace(
             {'_id': issue_id},
             issue_data,

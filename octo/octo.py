@@ -14,15 +14,21 @@ def main():
 
     issue10 = Issue(subject='a')
 
-    client = MongoClient('192.168.99.100', 32769)
+    client = MongoClient('192.168.99.100', 27017)
     db = client.octo
     issue_dao = IssueDAO(db)
-    #issue3 = Issue('new issue')
     issue_dao.save(issue10)
+    issue = issue_dao.load(1)
+    issue.user.assigned_to = ['fcrp']
+    print(dir(issue))
+    print(issue.__dict__)
+    print(issue.user.assigned_to)
+    #issue3 = Issue('new issue')
+    #issue_dao.save(issue10)
 
-    issue = issue_dao.find_one_by_id(1)
-    issue.status = 'open'
-    issue_dao.save(issue)
+    #issue = issue_dao.find_one_by_id(1)
+    #issue.status = 'open'
+    #issue_dao.save(issue)
     #issue.subject = 'xpto'
     #issue_dao.save(issue)
     #issue2 = Issue(subject='Teste2')
@@ -38,5 +44,4 @@ def main():
     #       print('{}: {}'.format(attr, getattr(issue, attr)))
 
 if __name__ == "__main__":
-
     main()
