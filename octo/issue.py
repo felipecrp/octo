@@ -14,6 +14,9 @@ class Issue(object):
             self.date = {}
             IssueDate(self.date)
 
+    def mii(self):
+        pass
+
     def __dir__(self):
         return dir(super()) + [
             'id',               # the issue id

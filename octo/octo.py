@@ -13,7 +13,6 @@ def main():
     ''' Main Method '''
 
     issue10 = Issue(subject='a')
-
     client = MongoClient('192.168.99.100', 27017)
     db = client.octo
     issue_dao = IssueDAO(db)
